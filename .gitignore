@@ -1,0 +1,14 @@
+node_modules/
+dist/
+.env
+.env.local
+
+# Python
+venv/
+venv311/
+__pycache__/
+*.pyc
+
+# TypeScript
+*.tsbuildinfo
+dataset/PhiUSIIL_Phishing_URL_Dataset.csv

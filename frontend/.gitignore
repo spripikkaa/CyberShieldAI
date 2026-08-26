@@ -1,0 +1,4 @@
+node_modus
+dist
+.env
+.env.local
