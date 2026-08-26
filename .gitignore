@@ -11,4 +11,15 @@ __pycache__/
 
 # TypeScript
 *.tsbuildinfo
+
+# Large original dataset
 dataset/PhiUSIIL_Phishing_URL_Dataset.csv
+
+# Unused/experimental ML models
+model/phishing_model_new.pkl
+model/phishing_model_url_only.pkl
+model/phishing_model_v2.pkl
+model/tld_encoder.pkl
+model/tld_encoder_new.pkl
+model/tld_encoder_url_only.pkl
+model/tld_mapping.pkl
