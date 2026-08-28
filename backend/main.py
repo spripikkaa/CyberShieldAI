@@ -1,3 +1,5 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -9,12 +11,28 @@ from backend.api.routes.scan_reports import router as scan_reports_router
 from backend.api.routes.ssl import router as ssl_router
 from backend.api.routes.users import router as users_router
 from backend.api.routes.whois import router as whois_router
+from backend.db.connection import (
+    close_mongo_connection,
+    connect_to_mongo,
+)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Connect to MongoDB when the backend starts
+    await connect_to_mongo()
+
+    yield
+
+    # Close MongoDB connection when the backend stops
+    await close_mongo_connection()
 
 
 app = FastAPI(
     title="CyberShield AI",
     description="AI-based phishing website detection and cybersecurity assistant",
     version="1.0",
+    lifespan=lifespan,
 )
 
 

@@ -3,6 +3,9 @@ import os
 from typing import Optional
 
 import httpx
+from dotenv import load_dotenv
+
+load_dotenv()
 
 logger = logging.getLogger("cybershield.chatbot.gemini_client")
 
