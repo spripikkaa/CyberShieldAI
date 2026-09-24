@@ -44,7 +44,7 @@ def predict(
     Extract features from the provided URL and return a phishing classification.
 
     Features are computed automatically using the URL feature extraction pipeline
-    before Random Forest inference.
+before XGBoost inference.
     """
     try:
         features = extract_features_from_url(url)

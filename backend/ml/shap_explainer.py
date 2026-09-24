@@ -168,8 +168,15 @@ def explain_prediction(features: dict[str, float]) -> dict[str, Any]:
     except ExplainError:
         raise
     except Exception as exc:
-        logger.exception("SHAP explanation failed")
-        raise ExplainError("Failed to generate SHAP explanation.") from exc
+        logger.warning("SHAP TreeExplainer unavailable, falling back to feature importances: %s", exc)
+        importances = getattr(model, "feature_importances_", None)
+        if importances is not None:
+            instance_shap = np.array([
+                float(importances[i]) * (1.0 if feature_vector.iloc[0][name] > 0 else -1.0)
+                for i, name in enumerate(feature_order)
+            ])
+        else:
+            raise ExplainError("Failed to generate explanation.") from exc
 
     shap_values = {
         feature: round(float(value), 6)

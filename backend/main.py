@@ -2,7 +2,6 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-
 from backend.api.routes.chatbot import router as chatbot_router
 from backend.api.routes.dns import router as dns_router
 from backend.api.routes.explain import router as explain_router
@@ -19,12 +18,10 @@ from backend.db.connection import (
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Connect to MongoDB when the backend starts
     await connect_to_mongo()
 
     yield
 
-    # Close MongoDB connection when the backend stops
     await close_mongo_connection()
 
 
@@ -36,7 +33,6 @@ app = FastAPI(
 )
 
 
-# CORS configuration
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -53,12 +49,11 @@ def home():
     }
 
 
-# API routers
 app.include_router(predict_router)
-app.include_router(chatbot_router)
 app.include_router(dns_router)
 app.include_router(explain_router)
-app.include_router(scan_reports_router)
 app.include_router(ssl_router)
-app.include_router(users_router)
 app.include_router(whois_router)
+app.include_router(users_router)
+app.include_router(chatbot_router)
+app.include_router(scan_reports_router)

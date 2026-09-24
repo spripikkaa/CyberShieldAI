@@ -21,12 +21,11 @@ import math
 import re
 from collections import Counter
 from urllib.parse import parse_qs, urlparse
-
+from backend.ml.features import FEATURE_NAMES
 
 # ============================================================
 # SUSPICIOUS WORDS
 # ============================================================
-
 SUSPICIOUS_WORDS = {
     "login",
     "signin",
@@ -104,74 +103,6 @@ COMMON_TLDS = {
 # URL FEATURE ORDER
 # ============================================================
 
-FEATURE_NAMES = [
-    "url_length",
-    "domain_length",
-    "path_length",
-    "query_length",
-    "fragment_length",
-
-    "num_dots",
-    "num_hyphens",
-    "num_underscores",
-    "num_slashes",
-    "num_digits",
-    "num_letters",
-    "num_special_chars",
-
-    "digit_ratio",
-    "letter_ratio",
-    "special_char_ratio",
-
-    "num_subdomains",
-
-    "has_ip",
-    "has_https",
-    "has_http",
-    "has_www",
-
-    "has_at_symbol",
-    "has_question_mark",
-    "has_equal",
-    "has_ampersand",
-    "has_percent",
-    "has_hash",
-    "has_double_slash",
-
-    "has_port",
-    "has_punycode",
-
-    "num_query_parameters",
-
-    "num_suspicious_words",
-    "has_suspicious_word",
-
-    "domain_entropy",
-    "path_entropy",
-
-    "domain_has_digit",
-    "domain_digit_ratio",
-
-    "path_has_digit",
-    "path_digit_ratio",
-
-    "tld_length",
-    "tld_is_common",
-
-    "domain_hyphen_ratio",
-    "path_special_ratio",
-
-    "url_has_encoded_char",
-    "num_encoded_chars",
-
-    "url_has_long_numeric_sequence",
-    "max_numeric_sequence",
-
-    "domain_repeated_char_ratio",
-    "path_repeated_char_ratio",
-]
-
-
 # ============================================================
 # HELPER FUNCTIONS
 # ============================================================
@@ -198,7 +129,6 @@ def _entropy(value: str) -> float:
 
     for count in counts.values():
         probability = count / length
-
         entropy -= probability * math.log2(probability)
 
     return float(entropy)
@@ -268,9 +198,26 @@ def _repeated_char_ratio(value: str) -> float:
     )
 
 
+# ============================================================
+# URL NORMALIZATION
+# ============================================================
+
 def _normalize_url(url: str) -> str:
     """
-    Make sure urlparse correctly identifies the hostname.
+    Normalize URLs before feature extraction.
+
+    Equivalent root URLs such as:
+
+        https://www.amazon.in
+        https://www.amazon.in/
+
+    are treated as the same URL.
+
+    Meaningful paths such as:
+
+        https://www.amazon.in/products/
+
+    are NOT changed.
     """
 
     url = str(url).strip()
@@ -280,6 +227,18 @@ def _normalize_url(url: str) -> str:
 
     if "://" not in url:
         url = "http://" + url
+
+    parsed = urlparse(url)
+
+    # Remove trailing slash ONLY when the URL is the root.
+    if (
+        parsed.path == "/"
+        and not parsed.query
+        and not parsed.fragment
+    ):
+        url = parsed._replace(
+            path=""
+        ).geturl()
 
     return url
 
@@ -296,7 +255,10 @@ def _is_ip_address(hostname: str) -> bool:
         r"^(?:\d{1,3}\.){3}\d{1,3}$"
     )
 
-    if not re.match(ipv4_pattern, hostname):
+    if not re.match(
+        ipv4_pattern,
+        hostname,
+    ):
         return False
 
     parts = hostname.split(".")
@@ -340,7 +302,9 @@ def _count_suspicious_words(url: str) -> int:
 # MAIN FEATURE EXTRACTION
 # ============================================================
 
-def extract_url_features(url: str) -> dict[str, float]:
+def extract_url_features(
+    url: str,
+) -> dict[str, float]:
     """
     Extract deterministic URL-only features.
 
@@ -348,11 +312,23 @@ def extract_url_features(url: str) -> dict[str, float]:
         Dictionary containing FEATURE_NAMES.
     """
 
+    # Original user input
     original_url = str(url).strip()
 
-    normalized_url = _normalize_url(original_url)
+    # Normalized URL used for all URL calculations
+    normalized_url = _normalize_url(
+        original_url
+    )
 
-    parsed = urlparse(normalized_url)
+    if not normalized_url:
+        return {
+            name: 0.0
+            for name in FEATURE_NAMES
+        }
+
+    parsed = urlparse(
+        normalized_url
+    )
 
     hostname = (
         parsed.hostname.lower()
@@ -366,35 +342,61 @@ def extract_url_features(url: str) -> dict[str, float]:
 
     domain = hostname
 
-    tld = _extract_tld(hostname)
+    tld = _extract_tld(
+        hostname
+    )
 
     # --------------------------------------------------------
     # Basic URL statistics
     # --------------------------------------------------------
 
-    url_length = len(original_url)
+    url_length = len(
+        normalized_url
+    )
 
-    domain_length = len(domain)
+    domain_length = len(
+        domain
+    )
 
-    path_length = len(path)
+    path_length = len(
+        path
+    )
 
-    query_length = len(query)
+    query_length = len(
+        query
+    )
 
-    fragment_length = len(fragment)
+    fragment_length = len(
+        fragment
+    )
 
-    num_dots = original_url.count(".")
+    num_dots = normalized_url.count(
+        "."
+    )
 
-    num_hyphens = original_url.count("-")
+    num_hyphens = normalized_url.count(
+        "-"
+    )
 
-    num_underscores = original_url.count("_")
+    num_underscores = normalized_url.count(
+        "_"
+    )
 
-    num_slashes = original_url.count("/")
+    num_slashes = normalized_url.count(
+        "/"
+    )
 
-    num_digits = _count_digits(original_url)
+    num_digits = _count_digits(
+        normalized_url
+    )
 
-    num_letters = _count_letters(original_url)
+    num_letters = _count_letters(
+        normalized_url
+    )
 
-    num_special_chars = _count_special_chars(original_url)
+    num_special_chars = _count_special_chars(
+        normalized_url
+    )
 
     # --------------------------------------------------------
     # Ratios
@@ -455,31 +457,31 @@ def extract_url_features(url: str) -> dict[str, float]:
     )
 
     has_at_symbol = int(
-        "@" in original_url
+        "@" in normalized_url
     )
 
     has_question_mark = int(
-        "?" in original_url
+        "?" in normalized_url
     )
 
     has_equal = int(
-        "=" in original_url
+        "=" in normalized_url
     )
 
     has_ampersand = int(
-        "&" in original_url
+        "&" in normalized_url
     )
 
     has_percent = int(
-        "%" in original_url
+        "%" in normalized_url
     )
 
     has_hash = int(
-        "#" in original_url
+        "#" in normalized_url
     )
 
     # Detect // after the scheme.
-    after_scheme = original_url
+    after_scheme = normalized_url
 
     if "://" in after_scheme:
         after_scheme = after_scheme.split(
@@ -495,11 +497,14 @@ def extract_url_features(url: str) -> dict[str, float]:
     # Port
     # --------------------------------------------------------
 
-    has_port = int(
-        parsed.port is not None
-        if parsed.hostname
-        else False
-    )
+    try:
+        has_port = int(
+            parsed.port is not None
+            if parsed.hostname
+            else False
+        )
+    except ValueError:
+        has_port = 0
 
     # --------------------------------------------------------
     # Punycode
@@ -529,7 +534,7 @@ def extract_url_features(url: str) -> dict[str, float]:
 
     num_suspicious_words = (
         _count_suspicious_words(
-            original_url
+            normalized_url
         )
     )
 
@@ -541,15 +546,21 @@ def extract_url_features(url: str) -> dict[str, float]:
     # Entropy
     # --------------------------------------------------------
 
-    domain_entropy = _entropy(domain)
+    domain_entropy = _entropy(
+        domain
+    )
 
-    path_entropy = _entropy(path)
+    path_entropy = _entropy(
+        path
+    )
 
     # --------------------------------------------------------
     # Domain digits
     # --------------------------------------------------------
 
-    domain_digits = _count_digits(domain)
+    domain_digits = _count_digits(
+        domain
+    )
 
     domain_has_digit = int(
         domain_digits > 0
@@ -564,7 +575,9 @@ def extract_url_features(url: str) -> dict[str, float]:
     # Path digits
     # --------------------------------------------------------
 
-    path_digits = _count_digits(path)
+    path_digits = _count_digits(
+        path
+    )
 
     path_has_digit = int(
         path_digits > 0
@@ -579,7 +592,9 @@ def extract_url_features(url: str) -> dict[str, float]:
     # TLD
     # --------------------------------------------------------
 
-    tld_length = len(tld)
+    tld_length = len(
+        tld
+    )
 
     tld_is_common = int(
         tld in COMMON_TLDS
@@ -589,7 +604,9 @@ def extract_url_features(url: str) -> dict[str, float]:
     # Domain hyphen ratio
     # --------------------------------------------------------
 
-    domain_hyphens = domain.count("-")
+    domain_hyphens = domain.count(
+        "-"
+    )
 
     domain_hyphen_ratio = _safe_ratio(
         domain_hyphens,
@@ -614,7 +631,7 @@ def extract_url_features(url: str) -> dict[str, float]:
     # --------------------------------------------------------
 
     num_encoded_chars = _count_encoded_chars(
-        original_url
+        normalized_url
     )
 
     url_has_encoded_char = int(
@@ -625,8 +642,10 @@ def extract_url_features(url: str) -> dict[str, float]:
     # Numeric sequences
     # --------------------------------------------------------
 
-    max_numeric_sequence = _max_numeric_sequence(
-        original_url
+    max_numeric_sequence = (
+        _max_numeric_sequence(
+            normalized_url
+        )
     )
 
     url_has_long_numeric_sequence = int(
@@ -638,11 +657,15 @@ def extract_url_features(url: str) -> dict[str, float]:
     # --------------------------------------------------------
 
     domain_repeated_char_ratio = (
-        _repeated_char_ratio(domain)
+        _repeated_char_ratio(
+            domain
+        )
     )
 
     path_repeated_char_ratio = (
-        _repeated_char_ratio(path)
+        _repeated_char_ratio(
+            path
+        )
     )
 
     # ========================================================
@@ -650,41 +673,121 @@ def extract_url_features(url: str) -> dict[str, float]:
     # ========================================================
 
     features = {
-        "url_length": float(url_length),
-        "domain_length": float(domain_length),
-        "path_length": float(path_length),
-        "query_length": float(query_length),
-        "fragment_length": float(fragment_length),
+        "url_length": float(
+            url_length
+        ),
 
-        "num_dots": float(num_dots),
-        "num_hyphens": float(num_hyphens),
-        "num_underscores": float(num_underscores),
-        "num_slashes": float(num_slashes),
-        "num_digits": float(num_digits),
-        "num_letters": float(num_letters),
-        "num_special_chars": float(num_special_chars),
+        "domain_length": float(
+            domain_length
+        ),
 
-        "digit_ratio": float(digit_ratio),
-        "letter_ratio": float(letter_ratio),
-        "special_char_ratio": float(special_char_ratio),
+        "path_length": float(
+            path_length
+        ),
 
-        "num_subdomains": float(num_subdomains),
+        "query_length": float(
+            query_length
+        ),
 
-        "has_ip": float(has_ip),
-        "has_https": float(has_https),
-        "has_http": float(has_http),
-        "has_www": float(has_www),
+        "fragment_length": float(
+            fragment_length
+        ),
 
-        "has_at_symbol": float(has_at_symbol),
-        "has_question_mark": float(has_question_mark),
-        "has_equal": float(has_equal),
-        "has_ampersand": float(has_ampersand),
-        "has_percent": float(has_percent),
-        "has_hash": float(has_hash),
-        "has_double_slash": float(has_double_slash),
+        "num_dots": float(
+            num_dots
+        ),
 
-        "has_port": float(has_port),
-        "has_punycode": float(has_punycode),
+        "num_hyphens": float(
+            num_hyphens
+        ),
+
+        "num_underscores": float(
+            num_underscores
+        ),
+
+        "num_slashes": float(
+            num_slashes
+        ),
+
+        "num_digits": float(
+            num_digits
+        ),
+
+        "num_letters": float(
+            num_letters
+        ),
+
+        "num_special_chars": float(
+            num_special_chars
+        ),
+
+        "digit_ratio": float(
+            digit_ratio
+        ),
+
+        "letter_ratio": float(
+            letter_ratio
+        ),
+
+        "special_char_ratio": float(
+            special_char_ratio
+        ),
+
+        "num_subdomains": float(
+            num_subdomains
+        ),
+
+        "has_ip": float(
+            has_ip
+        ),
+
+        "has_https": float(
+            has_https
+        ),
+
+        "has_http": float(
+            has_http
+        ),
+
+        "has_www": float(
+            has_www
+        ),
+
+        "has_at_symbol": float(
+            has_at_symbol
+        ),
+
+        "has_question_mark": float(
+            has_question_mark
+        ),
+
+        "has_equal": float(
+            has_equal
+        ),
+
+        "has_ampersand": float(
+            has_ampersand
+        ),
+
+        "has_percent": float(
+            has_percent
+        ),
+
+        "has_hash": float(
+            has_hash
+        ),
+
+        "has_double_slash": float(
+            has_double_slash
+        ),
+
+        "has_port": float(
+            has_port
+        ),
+
+        "has_punycode": float(
+            has_punycode
+        ),
 
         "num_query_parameters": float(
             query_parameters
@@ -768,7 +871,9 @@ def extract_url_features(url: str) -> dict[str, float]:
     # --------------------------------------------------------
 
     return {
-        name: features[name]
+        name: float(
+            features[name]
+        )
         for name in FEATURE_NAMES
     }
 
@@ -777,12 +882,14 @@ def extract_url_features(url: str) -> dict[str, float]:
 # COMPATIBILITY FUNCTION
 # ============================================================
 
-def extract_features_from_url(url: str) -> dict[str, float]:
+def extract_features_from_url(
+    url: str,
+) -> dict[str, float]:
     """
     Compatibility wrapper.
 
-    Your existing backend already uses this function name,
-    so we keep the same public function.
+    Your existing backend already uses this
+    function name, so we keep the same public function.
     """
 
     return extract_url_features(url)

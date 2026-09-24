@@ -23,3 +23,10 @@ model/tld_encoder.pkl
 model/tld_encoder_new.pkl
 model/tld_encoder_url_only.pkl
 model/tld_mapping.pkl
+# Temporary model and test files
+model/phishing_url_model.backup.pkl
+model/phishing_url_model.candidate.pkl
+model/phishing_url_model.candidate_v2.pkl
+dataset/holdout_legitimate_urls.csv
+dataset/holdout_phishing_urls.csv
+scratch/
